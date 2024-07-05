@@ -1,10 +1,15 @@
 library(dplyr)
 library(covidcast)
 library(ggplot2)
+library(lubridate)
 
 drunkest_states = readRDS('dat/drunkest_states.rds')
 df = read.csv('dat/scrubbed.csv')
 mh = read.csv('dat/mh_ranks.csv')
+
+df$datetime <- mdy_hm(df$datetime)
+df = df %>% filter(datetime >= as.Date("2010-01-01"))
+
 
 mh = mh[,c(1,5)]
 colnames(mh) = c("State", "mh_rank")
@@ -42,16 +47,21 @@ counts_us_top = counts_us %>%
   arrange(desc(scaled_aliens))
 counts_us_top = counts_us_top[1:15,]
 
-mean_mh = mean(counts_us_top$mh_rank)
+mean_val = mean(counts_us_top$drunk_rank)
+
+ggplot(data = counts_us, aes(x = drunk_rank, y = scaled_aliens)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  labs(title = "Alien sightings vs Drunkness Rank", subtitle = "scaled by population of each state")
 
 ggplot(counts_us_top, aes(x = Var1, y = scaled_aliens, fill = State)) +
   geom_bar(stat = 'identity') +
   geom_text(aes(label = mh_rank), vjust = -0.5) +
-  annotate("text", x = Inf, y = Inf, label = paste("Mean Rank:", round(mean_mh, 2)),
+  annotate("text", x = Inf, y = Inf, label = paste("Mean Rank:", round(mean_val, 2)),
            hjust = 3, vjust = 2, size = 5, color = "black") +
-  labs(x = 'State', y = 'Count', title = "Alien Sightings (scaled by population)", subtitle = "Mental Health Rank Shown")
+  labs(x = 'State', y = 'Sightings / State Pop', title = "Alien Sightings (scaled by population)", subtitle = "Mental Health Rank Shown")
 
-length(which(counts_us_top$mh_rank >= 25))
+length(which(counts_us_top$drunk_rank >= 25))
 
 
  
