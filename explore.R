@@ -6,6 +6,12 @@ library(lubridate)
 drunkest_states = readRDS('dat/drunkest_states.rds')
 df = read.csv('dat/scrubbed.csv')
 mh = read.csv('dat/mh_ranks.csv')
+drug_df = readRDS('dat/drug_use.rds')
+religion_df = readRDS('dat/religion_df.rds')
+mb_df = readRDS('dat/mb_df.rds') %>% na.omit()
+
+mb_df$military_rank = 50:1
+religion_df$religion_rank = 50:1
 
 df$datetime <- mdy_hm(df$datetime)
 df = df %>% filter(datetime >= as.Date("2010-01-01"))
@@ -40,7 +46,12 @@ drunkest_df = drunkest_df[,c(1,3)]
 counts_us = left_join(counts_us, drunkest_df, by = 'Var1')
 
 counts_us = left_join(counts_us, drunk_states_df, join_by("State" == "drunkest_states"))
-counts_us = left_join(counts_us, mh, by = "State")
+counts_us = left_join(counts_us, mh, by = "State") 
+counts_us = left_join(counts_us, drug_df, join_by("State" == "state_names"))
+counts_us = left_join(counts_us, religion_df, join_by("State" == "state"))
+counts_us = left_join(counts_us, mb_df, join_by("State" == "states"))
+
+
 
 
 counts_us_top = counts_us %>%
@@ -49,10 +60,34 @@ counts_us_top = counts_us_top[1:15,]
 
 mean_val = mean(counts_us_top$drunk_rank)
 
-ggplot(data = counts_us, aes(x = drunk_rank, y = scaled_aliens)) +
-  geom_point() +
-  geom_smooth(method = 'lm', se = FALSE) +
-  labs(title = "Alien sightings vs Drunkness Rank", subtitle = "scaled by population of each state")
+# Fit the linear model
+fit_drunk <- lm(scaled_aliens ~ drunk_rank, data = counts_us)
+fit_religion <- lm(scaled_aliens ~ religion_rank, data = counts_us)
+fit_drug <- lm(scaled_aliens ~ drug_rank, data = counts_us)
+
+# Get the coefficients (intercept and slope)
+coefficients <- coef(fit)
+
+summary(fit_drug)$r.squared
+
+
+abs(coef(fit_religion)[2]) / abs(coef(fit_drunk)[2])
+
+
+ggplot(data = counts_us) +
+  # geom_point(aes(x = drunk_rank, y = scaled_aliens), shape = 16, color = 'blue', size = 2.5) +
+  # geom_point(aes(x = drug_rank, y = scaled_aliens), shape = 17, color = 'red', size = 2.5) +
+  geom_point(aes(x = religion_rank, y = scaled_aliens), shape = 18, color = 'purple', size = 4) +
+  geom_smooth(aes(x = drunk_rank, y = scaled_aliens, color = 'Drunk'), linetype = 17,  method = 'lm', se = FALSE) +
+  geom_smooth(aes(x = drug_rank, y = scaled_aliens, color = "Drug"), linetype = 17, method = 'lm', se = FALSE, color = 'red') +
+  geom_smooth(aes(x = military_rank, y = scaled_aliens, color = "Drug"), linetype = 17, method = 'lm', se = FALSE, color = 'green') +
+  geom_smooth(aes(x = religion_rank, y = scaled_aliens, color = "Religion"), method = 'lm', size = 2.5, se = FALSE, color = 'purple') +
+  labs(title = "Alien sightings vs Religion Rank",
+       subtitle = "scaled by population of each state",
+       color = 'Rank Type') +
+  xlab("Rank") +
+  ylab("Scaled Alien Sightings") +
+  scale_color_manual(values = c("Drunk" = "blue", "Drug" = "red", "Religion" = "purple"))
 
 ggplot(counts_us_top, aes(x = Var1, y = scaled_aliens, fill = State)) +
   geom_bar(stat = 'identity') +
